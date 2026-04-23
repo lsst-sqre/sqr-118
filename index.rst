@@ -14,7 +14,7 @@ Types of notifications
 
 There are several different types of user notifications that will need separate treatment:
 
-- Welcome messages and tool tips.
+- Welcome and introductory messages.
   These are presented to the user the first time or first few times they access a particular service or feature.
   The user should be able to dismiss the message so that it doesn't appear in the future, or dismiss all such help messages if they are annoyed by this communication method.
   Users should also be able to reset the dismissal and see such messages again as if they were a new user, which may be desirable if they have not used the Rubin Science Platform for some time and want a refresher.
@@ -47,23 +47,39 @@ They should have a short summary and a larger body that can be expanded for more
 Displaying notifications
 ------------------------
 
-Notifications should be shown to the user via banners on the home page of the Rubin Science Platform and within the Notebook and Portal Aspects.
-Notifications specific to a particular aspect, such as welcome and tooltip notifications, should only be shown within that aspect.
+Notifications should, by default, be shown to the user via a notifications area on the home page of the Rubin Science Platform, provided by Squareone_.
+Following the now-common design of many web sites, the initial proposed design is a bell icon with a red count badge of unread messages (if any).
+Clicking the icon brings up the user's notifications, read and unread.
+It may be useful to have a "See all notifications" link that goes to a separate page that can display more history.
 
-In the future, we may also want to integrate notifications with the Discourse discussion forums at community.lsst.org_ and with a service desk ticketing system.
+.. _Squareone: https://squareone.lsst.io/
+
+Some notifications, such as the current broadcast messages, should instead or in addition be shown as banner messages at the top of the home page.
+Broadcast notifications should be configurable for whether they are displayed as banners, as user notifications, or both, and whether they are dismissable.
+
+Notifications specific to a particular aspect, such as welcome and introduction screens, should only be shown within that aspect.
+
+In the future, we may also want to integrate notifications with the Discourse discussion forums at community.lsst.org_ so that the user can receive direct messages for important notifications, thus triggering email notification.
+This would require some way of mapping RSP users to Discourse users.
 
 .. _community.lsst.org: https://community.lsst.org/
 
-Users should also be able to go to a UI page (probably provided by Squareone_) and see all of their recent notifications, including ones they have dismissed.
-This should not include welcome or tooltip notifications.
+Alternately, we may want to send the most important notifiations to the user via email.
 
-.. _Squareone: https://squareone.lsst.io/
+Browser notifications
+---------------------
+
+Most browsers now support `browser notifications`_, which allow users to permit web sites to send notifications even if that site is not currently loaded.
+Squareone should add support for providing user notifications via browser notifications.
+This is a lower priority than providing the notification icon and interactive browser interface.
+
+.. _browser notifications: https://developer.mozilla.org/en-US/docs/Web/API/Notification
 
 Clearing notifications
 ----------------------
 
-In most cases, users should be able to dismiss any notification.
-That notification should then not be shown to that user again.
+In most cases, users should be able to dismiss any banner notification or welcome message.
+That notification should then not be shown to that user again, but, for banner messages, will still appear in their notification history.
 
 Notifications should be removed if the issue prompting the notification has been resolved.
 For example, if a user is being rate-limited due to quotas and their quota is increased or their number of requests drops so that they are no longer being rate-limited, the corresponding notification should be suppressed automatically and fairly quickly to avoid misleading the user.
@@ -78,9 +94,9 @@ The proposed design builds on the existing Semaphore_ service, expanding it to p
 .. diagrams:: architecture.py
 
 Applications, metrics analysis cron jobs, and administrators can all create notifications via the REST API, which are stored in a database.
-UIs such as Squareone_, Nublado_, and the Portal aspect query for notifications via a separate REST API, and can tell that REST API when a user has dismissed a notification or requested that welcome messages and tooltips not be shown.
+UIs such as Squareone_ query for notifications via a separate REST API, and can tell that REST API when a user has dismissed a notification or requested that welcome and introductory messages not be shown.
 
-.. _Nublado: https://nublado.lsst.io/
+This diagram includes Nublado and the Portal Aspect as UIs, since at least they may want to use the welcome and introductory message support, but in the initial design all notifications will be shown by Squareone.
 
 Data model
 ----------
@@ -114,6 +130,7 @@ Requests to Semaphore from applications and cron jobs authenticate with internal
 As an optimization, the cron jobs that analyze metrics may run as part of the Semaphore Phalanx application and thus talk to the Semaphore database directly instaed of going through the REST API.
 
 Requests to Semaphore from UIs are either unauthenticated, for unauthenticated users who only see universal broadcast messages, or are authenticated with the user's token via normal Gafaelfawr_ delegated authentication.
+For unauthenticated users, no notification bell icon is shown and any broadcast messages are shown as banners, similar to the current behavior of Squareone.
 
 .. _Gafaelfawr: https://gafaelfawr.lsst.io/
 
@@ -146,27 +163,30 @@ User interfaces
 ---------------
 
 Squareone_ already has a mechanism for displaying banner notifications using the existing Semaphore API.
-If it is changed to make an authenticated request rather than an unauthenticated request when the user has authentication credentials, it will pick up the new per-user notifications as well.
+To show the new notification icon on the front page, it should make an authenticated request rather than an unauthenticated request and thereby get both banners and the user's current notifications and unread count.
+The Semaphore API should be designed to return the information necessary for generating the home page of Squareone in a single response.
+
+When the user requests their full notification history, that response may be paginated depending on the number of notifications that user has received.
+Very old notifications may be discarded to avoid indefinite database growth.
+
 Semaphore will need correct handling of CORS preflight checks to allow authenticated requests, since Semaphore may be in a different origin than Squareone going forward.
-
-For Nublado, we will add a JupyterLab extension that sends an authenticated query to Semaphore periodically for user notifications and, if any are returned, displays them in some appropriate way (to be determined).
-Nublado should also use Semaphore to determine whether to display the welcome message for new users.
-That should use a different mechanism than the current approach of changing the home tab of the UI so that it can be a modal dialogue with an option to never see the message again.
-
-Firefly, which provides the Portal aspect, currently has a limited facility to show a static banner message to users, but no support for dynamic user notifications.
-This facility should be added so that users who primarily use the Portal aspect, and may go directly to it rather than first going through the home page served by Squareone, will see user notifications.
 
 The Semaphore API for user interfaces should return the notifications rendered in HTML so that the various user interfaces don't have to handle the conversion from Markdown.
 
-Welcome messages and tooltips
------------------------------
+Welcome and introductory messages
+---------------------------------
 
-Although welcome messages and tooltips are similar to broadcast user notifications, including the ability of individual users to dismiss the notification for themselves, they should use a separate API in Semaphore.
-They may not be displayed in the same places or in the same ways and may be attached to particular portions or features of the UI instead of a general notification area.
+Although welcome and introductory messages are similar to broadcast user notifications, including the ability of individual users to dismiss the notification for themselves, they should use a separate API in Semaphore.
+They may not be displayed in the same places or in the same ways.
+In the future (not in the initial implementation), they may be attached to particular portions or features of the UI instead of a general welcome message or splash screen.
 
-The details of this feature are, for now, much hazier than the other parts of this design.
-The one thing we know we want to replace with this new facility is the welcome page in Nublado.
-We will flesh out the design when we have more use cases.
+To replace the current Nublado_ landing page with a better-behaved welcome screen, we will add a JupyterLab extension that sends an authenticated query to Semaphore on startup for any relevant welcome message and, if any is returned, displays it.
+That should use a different mechanism than the current approach of changing the home tab of the UI so that it can be a modal dialogue with an option to never see the message again.
+
+.. _Nublado: https://nublado.lsst.io/
+
+Firefly, which provides the Portal aspect, currently has a limited facility to show a static banner message to users, but no support for dynamic user notifications.
+We will not be adding any further notification support to Firefly for this first round of development, but may consider it in the future.
 
 Discussion
 ==========
@@ -187,12 +207,12 @@ It would also make it hard for the application to reconcile its current notifica
 Given that, we decided we needed a more conventional REST API to a central notification service, which will allow each application to list its currently active notifications and revoke the ones that are no longer appropriate.
 Since the REST API would be needed anyway, it makes sense to also create notifications in the same way rather than splitting the API across multiple protocols.
 
-Why not email?
---------------
+Why not email from the start?
+-----------------------------
 
 Historically, notifications from other services were often done via email.
 The data.lsst.cloud instance of the Rubin Science Platform does collect and verify email addresses for each user.
-However, email is an unattractive choice for operational designs in 2026 for several reasons:
+However, email is an unattractive default choice for operational designs in 2026 for several reasons:
 
 #. Email spam and therefore email spam protection has become increasingly aggressive.
    Best practice for sending email is now to use a dedicated email service (increasing cost) that verifies the sender to increase the likelihood of successful delivery, and even when using such a service, a lot of email is filtered out as spam by major email providers.
@@ -206,6 +226,10 @@ However, email is an unattractive choice for operational designs in 2026 for sev
    Some users, particularly younger users, may not check email frequently.
 
 We currently use banners on RSP home page for broadcast notifications.
-Building on this approach seems better tailored to the notification needs of the RSP.
+Building on this approach as the first implementation step seems better-tailored to the notification needs of the RSP.
 The notification is put in front of the user where they are working, and it clearly comes from the RSP and is not phishing.
-Users who only use APIs from outside the RSP aren't reachable this way, but we believe those users will be a relatively small minority.
+Users who only use APIs from outside the RSP aren't reachable this way, however.
+
+Email notifications would be valuable as a separate, additional notification path, particularly for important messages we don't want the user to miss even if they are not actively using the RSP.
+We may therefore provide email notification for some subset of notifications as part of later development work.
+Options include using community.lsst.org direct messages, sending the email directly through some email sending provider, or enrolling users in a ticketing system so that we can create tickets and list the user as a notification contact.
