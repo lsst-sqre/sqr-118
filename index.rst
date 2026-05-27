@@ -110,9 +110,7 @@ The proposed design builds on the existing Semaphore_ service, expanding it to p
 .. diagrams:: architecture.py
 
 Applications, metrics analysis cron jobs, and administrators can all create notifications via the REST API, which are stored in a database.
-UIs such as Squareone_ query for notifications via a separate REST API, and can also use a POST API to record that the user has seen a notification or dismissed a message.
-
-This diagram includes Nublado and the Portal Aspect as UIs, since at least they may want to use the welcome and introductory message support, but in the initial design all notifications will be shown by Squareone.
+UIs (in the initial design, only Squareone_) query for notifications via a separate REST API, and can also use a POST API to record that the user has seen a notification or dismissed a message.
 
 Data model
 ----------
@@ -128,7 +126,7 @@ There are two high-level possibilities for the data model for application- and m
 There is also a compromise position between the two, where the originating application provides a template and a set of variables as key/value pairs.
 This keeps responsibility for the formatting in the application but allows the application to search for notifications via semi-structured data.
 
-Both approaches have advantages and disadvantages.
+While both approaches have advantages and disadvantages, we've chosen to manage the templates in each application that wants to send user notifications and have Semaphore track only formatted messages.
 
 Application-managed templates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -143,6 +141,8 @@ The compromise approach makes that querying easier by allowing the application t
 
 In this approach, the code to manage application notifications will have to be duplicated in all the applications that send and want to revoke notifications, although some of it could be collected into a library.
 This provides the most flexibility and keeps the Semaphore layer simple and focused only on distributing messages, at the cost of higher application complexity.
+
+We've chosen this approach.
 
 Semaphore-managed templates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -159,20 +159,6 @@ With this approach, Semaphore would store the structured data for various types 
 This approach has significant drawbacks, however.
 It makes Semaphore more complicated and requires that it understand the semantics of messages and format them for the user, rather than simply being a store and forward message bus.
 It also requires changes to both Semaphore and the originating application when adding new alerts, including in many cases a new Semaphore route, models, and database migration to add a new table for a new type of structured alert data.
-
-Analysis
-^^^^^^^^
-
-Providing a mechanism to send an ad hoc message to the user that is already formatted by the sender and has no structured data other than dates and the target user will be required anyway for free-form administrator-initiated notifications.
-We therefore will start by implementing that approach, and then see if the option for sending notifications that are formatted by Semaphore is needed.
-
-In the long term, this is a question of where to put the complexity of formatting messages.
-Centralizing complexity fits with the general philosophy of making each Phalanx application as simple as possible by providing shared functionality in robust shared services.
-However, the overhead burden of adding new structured messages is high in a model where Semaphore requires an update for new types of messages.
-We would have to be careful about generalizing message types and not creating new message types profligately.
-
-We do not have to fully make this decision now.
-It may become apparent whether we want structured messages with Semaphore-managed templates and formatting when adding metrics-driven notifications, as discussed in :ref:`metrics-actions`.
 
 Authentication and authorization
 --------------------------------
@@ -205,19 +191,7 @@ Rather than add additional state tracking to each application, and find a way to
 
 .. _Sasquatch: https://sasquatch.lsst.io/
 
-The first anticipated use case of this type of query and action is to look for users who are consuming excessive platform resources by making expensive requests below the quota limits for extended periods of time, such as via automation.
-A design of such a system could look like this:
-
-#. Search for potentially abusive users with an InfluxDB query for a threshold of total traffic volume.
-#. Set a lower quota for such users via a new Gafaelfawr API.
-#. Impose that quota inside the relevant service.
-#. Notify the user using the application API to the notification system.
-#. Record that this user has been throttled or use the Gafaelfawr API to find throttled users, whichever approach seems easiest to maintain.
-#. Repeat this process periodically.
-   If a user was previously throttled and no longer needs to be based on some new threshold, remove the quota restriction and the notification.
-
-Since the notification should be automatically revoked once the user's traffic drops below some threshold and their regular quota is restored, this system must be able to find any restrictions it issued previously.
-How this is done will depend on the data model for how notifications are stored and therefore whether the metrics-based throttler can use Semaphore to perform the search for previous notifications or whether it needs to keep local state.
+For more discussion of this use case, see :sqr:`119`.
 
 User interfaces
 ---------------
@@ -238,17 +212,6 @@ Semaphore will need correct handling of CORS preflight checks to allow authentic
 
 The Semaphore API for user interfaces should return the notifications rendered in HTML so that the various user interfaces don't have to handle the conversion from Markdown.
 
-Welcome and introductory messages
----------------------------------
-
-To replace the current Nublado_ landing page with a better-behaved welcome screen, we will add a JupyterLab extension that sends an authenticated query to Semaphore on startup for any relevant welcome message and, if any is returned, displays it.
-That should use a different mechanism than the current approach of changing the home tab of the UI so that it can be a modal dialogue with an option to never see the message again.
-
-.. _Nublado: https://nublado.lsst.io/
-
-Firefly, which provides the Portal aspect, currently has a limited facility to show a static banner message to users, but no support for dynamic user notifications.
-We will not be adding any further notification support to Firefly for this first round of development, but may consider it in the future.
-
 Proposed API
 ============
 
@@ -257,6 +220,8 @@ It does not (yet) include an API for dismissing broadcast messages or for managi
 
 For applications
 ----------------
+
+These routes will use a new scope, ``notifications:write``, to limit access to only applications with that scope.
 
 ``POST /semaphore/v1/senders/<application>/notifications``
     Create a new user notification.
@@ -299,6 +264,8 @@ For applications
 For administrators
 ------------------
 
+These routes will be restricted to a new ``admin:notifications`` scope.
+
 ``POST /semaphore/v1/admin/notifications``
     The same as the application notiication creation API above, except this API creates administrator notifications and is only accessible with an appropriate Gafaelfawr role.
 
@@ -313,6 +280,8 @@ Administrators also have access to the application API for any application.
 
 For user interfaces
 -------------------
+
+These routes allow any scope, but only return the notifications for the authenticated user.
 
 ``GET /semaphore/v1/notifications``
     Retrieves the notifications for the current authenticated user.
@@ -395,6 +364,12 @@ Users who only use APIs from outside the RSP aren't reachable this way, however.
 Email notifications would be valuable as a separate, additional notification path, particularly for important messages we don't want the user to miss even if they are not actively using the RSP.
 We may therefore provide email notification for some subset of notifications as part of later development work.
 Options include using community.lsst.org direct messages, sending the email directly through some email sending provider, or enrolling users in a ticketing system so that we can create tickets and list the user as a notification contact.
+
+Portal notifications
+--------------------
+
+Firefly, which provides the Portal aspect, currently has a limited facility to show a static banner message to users, but no support for dynamic user notifications.
+We will not be adding any further notification support to Firefly for this first round of development, but may consider it in the future.
 
 Welcome and introductory messages
 ---------------------------------
