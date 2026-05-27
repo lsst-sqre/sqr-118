@@ -55,8 +55,8 @@ with Diagram(
     service_b >> semaphore
     influxdb >> cron >> semaphore
     semaphore >> squareone >> users
-    semaphore >> nublado >> users
-    semaphore >> portal >> users
+    semaphore >> Edge(style="dashed") >> nublado >> users
+    semaphore >> Edge(style="dashed") >> portal >> users
 
     # Force formatting.
     db - Edge(penwidth="0.0") - users
