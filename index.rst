@@ -50,30 +50,6 @@ Dismissing the notification for one Patch Thursday (see :sqr:`056`) maintenance 
 
 Some broadcast messages may be sufficiently important that we don't want to allow dismissal, such as ongoing outage notifications.
 
-Welcome and introductory messages
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Rubin Observatory staff who are responsible for helping new users learn how to use the platform have asked for a way to show users introductory and orientation information when they start using a new component of the system.
-
-Currently, this is implemented for Nublado_ in the form of a landing page that is shown when they create a personal JupyterLab server.
-This approach has several drawbacks that we would like to fix:
-
-.. _Nublado: https://nublado.lsst.io/
-
-- The technical implementation causes a delay and a redirect of the user interface after opening the notebook, potentially interrupting work the user has already started in another tab.
-- Experienced users who have seen the welcome screen before have no way to dismiss it permanently.
-- The process of displaying the welcome screen is unnecessarily complicated and requires creating symlinks in the user's home directory.
-
-We want these messages to be dismissable and to honor a request from the user to never see the message again.
-
-Better welcome messages could be handled individually by each application, and indeed the Portal Aspect already has its own pop-up hint mechanism.
-However, there are two features that we would like to have that call for a global service:
-
-- Users should be able to opt out of all welcome messages and educational pop-up messaging, including ones they have not yet seen, by saying that they are an expert.
-- Users should be able to reset the dismissal status of all such welcome and educational messages back to the state they would be in if they were a brand-new user of the Rubin Science Platform, and should be able to do this in a single place without having to go into each application and individually reset it.
-
-It's not clear whether these features should be handled in the same application as per-user messaging, but some of the state-tracking problems are similar.
-
 Formatting notifications
 ------------------------
 
@@ -419,3 +395,32 @@ Users who only use APIs from outside the RSP aren't reachable this way, however.
 Email notifications would be valuable as a separate, additional notification path, particularly for important messages we don't want the user to miss even if they are not actively using the RSP.
 We may therefore provide email notification for some subset of notifications as part of later development work.
 Options include using community.lsst.org direct messages, sending the email directly through some email sending provider, or enrolling users in a ticketing system so that we can create tickets and list the user as a notification contact.
+
+Welcome and introductory messages
+---------------------------------
+
+Rubin Observatory staff who are responsible for helping new users learn how to use the platform have asked for a way to show users introductory and orientation information when they start using a new component of the system.
+
+Currently, this is implemented for Nublado_ in the form of a landing page that is shown when they create a personal JupyterLab server.
+This approach has several drawbacks that we would like to fix:
+
+.. _Nublado: https://nublado.lsst.io/
+
+- The technical implementation causes a delay and a redirect of the user interface after opening the notebook, potentially interrupting work the user has already started in another tab.
+- Experienced users who have seen the welcome screen before have no way to dismiss it permanently.
+- The process of displaying the welcome screen is unnecessarily complicated and requires creating symlinks in the user's home directory.
+
+We want these messages to be dismissable and to honor a request from the user to never see the message again.
+
+We considered integrating this into Semaphore as well, since Semaphore does similar tracking and dismissal of per-user notifications and could provide a central place where users could reset all introductory messages of this type.
+However, we decided to exclude it from the scope of this work as insufficiently similar and also a lower priority.
+
+We are not sure that we are going to keep the introductory splash screen at all.
+If we do, we will use some Nublado-specific mechanism to allow the user to suppress it for now.
+
+In the long run we may want a central system to implement a couple of useful features:
+
+- Users should be able to opt out of all welcome messages and educational pop-up messaging, including ones they have not yet seen, by saying that they are an expert.
+- Users should be able to reset the dismissal status of all such welcome and educational messages back to the state they would be in if they were a brand-new user of the Rubin Science Platform, and should be able to do this in a single place without having to go into each application and individually reset it.
+
+However, this is a low priority and can be kept separate from the per-user notification work.

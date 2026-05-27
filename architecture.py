@@ -47,16 +47,12 @@ with Diagram(
 
         with Cluster("UI"):
             squareone = React("Squareone")
-            nublado = Pod("Nublado user pod")
-            portal = KubernetesEngine("Portal")
 
     administrator >> semaphore
     service_a >> semaphore
     service_b >> semaphore
     influxdb >> cron >> semaphore
     semaphore >> squareone >> users
-    semaphore >> Edge(style="dashed") >> nublado >> users
-    semaphore >> Edge(style="dashed") >> portal >> users
 
     # Force formatting.
     db - Edge(penwidth="0.0") - users
