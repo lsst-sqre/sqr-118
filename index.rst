@@ -46,7 +46,7 @@ These are expected to remain largely unchanged in this design, except that we ar
 This may not be necessary, since we try to use broadcast messages sparingly, so it is not a firm requirement.
 
 If we do add this feature, the dismissal mechanism needs to correctly handle repeating notifications.
-Dismissing the notification for one :sqr:`Patch Thursday <056>` maintenance window should not dismiss the following notification the next week.
+Dismissing the notification for one Patch Thursday (see :sqr:`056`) maintenance window should not dismiss the following notification the next week.
 
 Some broadcast messages may be sufficiently important that we don't want to allow dismissal, such as ongoing outage notifications.
 
