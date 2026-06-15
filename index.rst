@@ -110,7 +110,7 @@ The proposed design builds on the existing Semaphore_ service, expanding it to p
 .. diagrams:: architecture.py
 
 Applications, metrics analysis cron jobs, and administrators can all create notifications via the REST API, which are stored in a database.
-UIs (in the initial design, only Squareone_) query for notifications via a separate REST API, and can also use a POST API to record that the user has seen a notification or dismissed a message.
+UIs (in the initial design, only Squareone_) query for notifications via a separate REST API, and can also use a POST API to record that the user has read a notification or dismissed a message.
 
 Data model
 ----------
@@ -222,13 +222,22 @@ For applications
 ----------------
 
 These routes will use a new scope, ``notifications:write``, to limit access to only applications with that scope.
+The application identity, represented below as ``<application>``, should be a service token identity starting with ``bot-``.
+This token will normally be obtained via a ``GafaelfawrServiceToken`` resource.
+
+.. note::
+
+   Applications should not use delegated tokens to send notifications.
+   Users will generally not have access to send notifications to other users, and using delegated tokens would produce inaccurate ``from`` fields and interfere with the ability of the application to see all of its own notifications.
+   Applications should therefore not request ``notifications:write`` as a delegated scope and instead use a separate application token, normally created via a ``GafaelfawrServiceToken`` resource.
 
 ``POST /semaphore/v1/senders/<application>/notifications``
     Create a new user notification.
     The body must be JSON with some or all of the following fields:
 
-    ``user``
+    ``to``
         Username of user to whom to send the notification.
+        Notifications may only be sent to one user at a time, at least in the initial version.
 
     ``summary``
         Summary line of the notification.
@@ -242,6 +251,9 @@ These routes will use a new scope, ``notifications:write``, to limit access to o
         Date and time when the notification should expire.
         At this point the notification will disappear as if it were not sent and will no longer be shown to the user.
     
+    ``revoked``
+        Whether the notification has been revoked.
+
     We may also want to add an urgency field and a flag indicating whether to show the notification as a banner message as well as a regular notification.
 
     The ``<application>`` portion of the URL must match the authenticated identity of the application (via Gafaelfawr token).
@@ -250,10 +262,29 @@ These routes will use a new scope, ``notifications:write``, to limit access to o
     Retrieve notifications sent by this application.
     Only notifications created by the authenticated identity sending the message will be returned.
 
+    This response is paginated using the `normal Safir pagination approach <https://safir.lsst.io/user-guide/database/pagination.html>`__.
+    The most recent notifications will be returned first.
+    It takes ``cursor`` and ``limit`` query parameters to implement pagination as well as the following query parameters:
+
+    ``to``
+        Return only notifications for the specified username.
+
+    ``since``
+        Return only notifications sent after or at the specified time.
+
+    ``until``
+        Return only notifications sent before or at the specified time.
+
     The model returned will be the same model sent when creating the notification, plus additional fields that are added automatically:
 
     ``id``
         A unique identifier for this notification.
+
+    ``url``
+        URL to that specific notification.
+
+    ``from``
+        The identity of the sender, which will match the name of the application.
 
     ``created``
         Creation date of the notification.
@@ -261,22 +292,53 @@ These routes will use a new scope, ``notifications:write``, to limit access to o
     We may add query parameters to allow searching for notifications by structured data.
     This initially would be the recipient username, but could include other structured data depending on whether we adopt a data model with a structured format.
 
+``GET /semaphore/v1/senders/<application>/notifications/<id>``
+    Retrieve one specific notification sent by that application.
+
+``DELETE /semaphore/v1/senders/<application>/notifications/<id>``
+    Revoke the specified notification sent by that application.
+    This notification will no longer be returned by the user interface API.
+    It will still be visible in the application API and the admin API for a limited period of time until it is garbage collected.
+
 For administrators
 ------------------
 
 These routes will be restricted to a new ``admin:notifications`` scope.
+Administrator routes use a separate route prefix to simplify Gafaelfawr authorization rules.
 
 ``POST /semaphore/v1/admin/notifications``
     The same as the application notiication creation API above, except this API creates administrator notifications and is only accessible with an appropriate Gafaelfawr role.
 
 ``GET /semaphore/v1/admin/notifications``
-    Lists all administrator notifications.
+    Lists all notifications.
+    The format of the returned objects is the same as that returned by the API for applications above.
 
-``GET /semaphore/v1/senders``
-    Lists all of the notification senders with notifications recorded in the system.
-    Administrators can use this to navigate the full list of notifications from the sender's perspective.
+    This response is paginated using the `normal Safir pagination approach <https://safir.lsst.io/user-guide/database/pagination.html>`__.
+    The most recent notifications will be returned first.
 
-Administrators also have access to the application API for any application.
+    This route supports the following optional query parameters:
+
+    ``to``
+        Return only notifications for the specified username.
+
+    ``from``
+        Return only notifications sent by the specified agent.
+
+    ``since``
+        Return only notifications sent after or at the specified time.
+
+    ``until``
+        Return only notifications sent before or at the specified time.
+
+    It also takes ``cursor`` and ``limit`` query parameters to implement pagination.
+
+``GET /semaphore/v1/admin/notifications/<id>``
+    Retrieve a specific notification.
+
+``DELETE /semaphore/v1/senders/<application>/notifications/<id>``
+    Revoke the specified notification.
+    This notification will no longer be returned by the user interface API.
+    It will still be visible in the application API and the admin API for a limited period of time until it is garbage collected.
 
 For user interfaces
 -------------------
@@ -285,6 +347,13 @@ These routes allow any scope, but only return the notifications for the authenti
 
 ``GET /semaphore/v1/notifications``
     Retrieves the notifications for the current authenticated user.
+    This response is paginated using the `normal Safir pagination approach <https://safir.lsst.io/user-guide/database/pagination.html>`__.
+    The most recent notifications will be returned first.
+    It takes ``cursor`` and ``limit`` query parameters to implement pagination, as well as the following optional query parameters:
+
+    ``unread``
+        If set to a boolean true value, return only unread notifications.
+
     The body will be a list of JSON objects with the following fields:
 
     ``id``
@@ -300,8 +369,8 @@ These routes allow any scope, but only return the notifications for the authenti
         Summary line of the notification.
         This will be an object with two fields, ``gfm`` and ``html``, which contain the Markdown and HTML-formatted summary respectively.
 
-    ``seen``
-        Whether this notification has been previously marked as seen.
+    ``read``
+        Whether this notification has been previously marked as read.
 
 ``GET /semaphore/v1/users/<username>/notifications/<id>``
     Retrieves the full notification for a given user.
@@ -315,8 +384,8 @@ These routes allow any scope, but only return the notifications for the authenti
     ``expires`` (optional)
         When the message expires, if it does.
 
-``POST /semaphore/v1/users/<username>/seen``
-    Mark a set of notifications as seen by the user.
+``POST /semaphore/v1/users/<username>/read``
+    Mark a set of notifications as read by the user.
     The body should be a list of notification ids as returned in the ``id`` field.
 
 Discussion
