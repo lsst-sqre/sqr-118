@@ -228,7 +228,7 @@ This token will normally be obtained via a ``GafaelfawrServiceToken`` resource.
 .. note::
 
    Applications should not use delegated tokens to send notifications.
-   Users will generally not have access to send notifications to other users, and using delegated tokens would produce inaccurate ``from`` fields and interfere with the ability of the application to see all of its own notifications.
+   Users will generally not have access to send notifications to other users, and using delegated tokens would produce inaccurate ``sender`` fields and interfere with the ability of the application to see all of its own notifications.
    Applications should therefore not request ``notifications:write`` as a delegated scope and instead use a separate application token, normally created via a ``GafaelfawrServiceToken`` resource.
 
 ``POST /semaphore/v1/senders/<application>/notifications``
@@ -280,7 +280,7 @@ This token will normally be obtained via a ``GafaelfawrServiceToken`` resource.
     ``url``
         URL to that specific notification.
 
-    ``from``
+    ``sender``
         The identity of the sender, which will match the name of the application.
 
     ``created``
@@ -321,7 +321,7 @@ Administrator routes use a separate route prefix to simplify Gafaelfawr authoriz
     ``to``
         Return only notifications for the specified username.
 
-    ``from``
+    ``sender``
         Return only notifications sent by the specified agent.
 
     ``since``
