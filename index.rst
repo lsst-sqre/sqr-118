@@ -384,7 +384,7 @@ These routes allow any scope, but only return the notifications for the authenti
     ``expires`` (optional)
         When the message expires, if it does.
 
-``POST /semaphore/v1/users/<username>/read``
+``POST /semaphore/v1/notifications/read``
     Mark a set of notifications as read by the user.
     The body should be a list of notification ids as returned in the ``id`` field.
 
