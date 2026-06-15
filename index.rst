@@ -251,9 +251,6 @@ This token will normally be obtained via a ``GafaelfawrServiceToken`` resource.
         Date and time when the notification should expire.
         At this point the notification will disappear as if it were not sent and will no longer be shown to the user.
     
-    ``revoked``
-        Whether the notification has been revoked.
-
     We may also want to add an urgency field and a flag indicating whether to show the notification as a banner message as well as a regular notification.
 
     The ``<application>`` portion of the URL must match the authenticated identity of the application (via Gafaelfawr token).
@@ -288,6 +285,9 @@ This token will normally be obtained via a ``GafaelfawrServiceToken`` resource.
 
     ``created``
         Creation date of the notification.
+
+    ``revoked``
+        Whether the notification has been revoked.
 
     We may add query parameters to allow searching for notifications by structured data.
     This initially would be the recipient username, but could include other structured data depending on whether we adopt a data model with a structured format.
