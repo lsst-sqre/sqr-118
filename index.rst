@@ -235,7 +235,7 @@ This token will normally be obtained via a ``GafaelfawrServiceToken`` resource.
     Create a new user notification.
     The body must be JSON with some or all of the following fields:
 
-    ``to``
+    ``recipient``
         Username of user to whom to send the notification.
         Notifications may only be sent to one user at a time, at least in the initial version.
 
@@ -263,7 +263,7 @@ This token will normally be obtained via a ``GafaelfawrServiceToken`` resource.
     The most recent notifications will be returned first.
     It takes ``cursor`` and ``limit`` query parameters to implement pagination as well as the following query parameters:
 
-    ``to``
+    ``recipient``
         Return only notifications for the specified username.
 
     ``since``
@@ -318,7 +318,7 @@ Administrator routes use a separate route prefix to simplify Gafaelfawr authoriz
 
     This route supports the following optional query parameters:
 
-    ``to``
+    ``recipient``
         Return only notifications for the specified username.
 
     ``sender``
